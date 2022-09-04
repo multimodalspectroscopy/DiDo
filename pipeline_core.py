@@ -43,19 +43,50 @@ class Pipeline:
             if self.state == 'run simple':
                 self.run_simple()
         else:
-            self.fast_calcs(feats_keep=args[0], session=args[1])
+            output = self.fast_calcs(args[0])
+            return output
     
-    def fast_calcs(self, feats_keep, session):
+    def fast_calcs(self, session):
         zdata = pd.read_csv(f'z_rpwr_rcst_uclh_{self.instrument}.csv')
 
-        with open('config.dictionary', 'rb') as config_dictionary_file:
-            config_dictionary = pickle.load(config_dictionary_file)
-            pca_2 = config_dictionary[f'item_save_{session}']
+        boundaries = np.load('decision_boundaries.npy', allow_pickle=True)
+        features = np.load('selected_features.npy', allow_pickle=True)
+        current_boundaries = np.array(boundaries[int(session),:])
+        current_features = list(features[int(session)])
+        print('current features', current_boundaries)
+
+        flex_state = True
+        if flex_state == True:
+            with open('config.dictionary', 'rb') as config_dictionary_file:
+                config_dictionary = pickle.load(config_dictionary_file)
+                pca_2 = config_dictionary[f'item_save_{session}']
         
-        rejcols = [col for col in zdata.columns if col not in feats_keep]
-        zdata = zdata.drop(rejcols,axis=1)
+        zdata = zdata.dropna(axis=1, how='all')
+        colno = [col for col in zdata.columns if col.count('Unnamed') == 1 or col.count('patient') == 1 or col.count('session') == 1]
+        zdata = zdata.drop(colno, axis=1)
+        colout = [col for col in zdata.columns if col not in current_features]
+        zdata = zdata.drop(colout, axis=1)
         pca_2_result = pca_2.transform(zdata)
+        pca_2_result = np.array(pca_2_result).flatten()
+        print(current_boundaries.shape, pca_2_result.shape)
         print('data loaded and preprocessed successfully')
+        if current_boundaries[0] * pca_2_result[0] + current_boundaries[1] < pca_2_result[1]:
+            if current_boundaries[2][0] == 0:
+                severity = 'low risk'
+            else:
+                severity = 'high risk'
+        else:
+            if current_boundaries[2][0] == 0:
+                severity = 'high risk'
+            else:
+                severity = 'low risk'
+
+        accuracy_live = np.load('accuracies.npy', allow_pickle=True)
+       
+        print('severity predicted successfully')
+        return [severity, np.round(accuracy_live[int(session)],3)]
+
+        
 
 
     def load_data(self):
@@ -114,10 +145,12 @@ class Pipeline:
         if update_params == 'yes':
             np.save('decision_boundaries.npy', cluster_output[4])
             np.save('selected_features.npy', cluster_output[5])
+            np.save('accuracies.npy', cluster_output[0])
+       
 
 if __name__ == '__main__':
     plot_state = 'no'
     save_state = 'no'
     p = Pipeline(instrument, 'run simple', plot_state, save_state)
-    p.learn_machine()
+    p.learn_machine(2)
 

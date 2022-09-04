@@ -185,7 +185,14 @@ def identify_severity_regions(x_boundary, y_boundary, pca_2_result, labels, pati
     decision_position = []
     # find position relative to decision boundary - for every subject
     threshold = 1e-2
-    
+    cluster_regions = []
+    centre = centres[0]
+    ycoord_indices = np.argwhere(np.abs(centre[1] - y_boundary) < 1e-2).flatten()
+    if centre[0] < x_boundary[ycoord_indices[0]]:
+        cluster_regions = [0,1]
+    else:
+        cluster_regions = [1,0]
+
     for case in range(pca_2_result.shape[0]):
         conv = False
         while conv == False:
@@ -203,7 +210,7 @@ def identify_severity_regions(x_boundary, y_boundary, pca_2_result, labels, pati
             else:
                 threshold *= 2
     decision_position = np.array(decision_position)
-    # define left or right position for each cluster 
+    # define left or right position for each cluster, 0 for left, 1 for right
     classifications_0 = np.mean(decision_position[np.array(np.argwhere(labels==0).flatten(),dtype=int)])
     classifications_1 = np.mean(decision_position[np.array(np.argwhere(labels==1).flatten(),dtype=int)])
     if classifications_0 >= 0.5 and classifications_1 <= 0.5:
@@ -234,7 +241,7 @@ def identify_severity_regions(x_boundary, y_boundary, pca_2_result, labels, pati
         else:
             classification_general.append(np.nan)
     classification_general = np.array(classification_general)
-    return classification_general
+    return classification_general, cluster_regions
 
 def extract_distributions(data0, data1, *args):
     n1, bins1, _ = plt.hist(data0, color='blue', density=True, label='cluster 0')

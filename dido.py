@@ -80,7 +80,7 @@ class dido:
         self.win.mlproc()
         self.runml()
         self.broadcastresult()
-        self.win.showres()
+        
 
     def getstatus(self):
         return self.status
@@ -117,30 +117,27 @@ class dido:
     
     def runml(self):
         os.chdir(self.base)
-        boundaries = np.load('decision_boundaries.npy')
-        features = np.load('selected_features.npy', allow_pickle='True')
-        current_boundaries = boundaries[int(self.sess),:]
-        current_features = list(features[int(self.sess)])
-
+        
+        
         files = [
             self.namebase
             ]
-
 
         self.p2 = varian('live', self.target_dir, files)
         self.p2.zfeature_acquisition()
         self.p2.rpwrrcst_acquisition()
 
         self.pipeline_base = Pipeline('live', 'run live', 'no', 'no')
-        self.pipeline_base.learn_machine(current_features,int(self.sess))
-
+        self.results = self.pipeline_base.learn_machine(int(self.sess))
+        print(self.results)
         self.status = 'running ML magic'
 
         return self.status
     
     def broadcastresult(self):
-        a = 'mild'
-        b = '90%'
+        a = self.results[0]
+        b = str(self.results[1] - 5) + " %"
+        self.win.showres(a,b)
         return a,b
 
 if __name__ == '__main__':

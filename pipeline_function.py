@@ -78,19 +78,26 @@ def runcluster(df, outcome_data, tune_state, plotoption, saveoption, *args):
         pca_2_forward = pca_2.fit(zdata)
         update_fit = 'yes'
         if update_fit == 'yes':
-            
             pca_2_base = PCA(n_components=2)
-            colsdrop = [col for col in df.columns if (col.count('before')==0 and col.count('during')==0 and col.count('after')==0)]
+            colsdrop = [col for col in df.columns if (col.count('before')==1 or col.count('during')==1 or col.count('after')==1)]
             zdata_live = df.drop(colsdrop,axis=1)
+            
+            colkeep = [
+                "[HBT]_Deltamua_total_minimum","[HBT]_Deltamua_total_median","[HBT]_Deltamua_total_maximum", 
+                "RefitDCSaDB_total_minimum","RefitDCSaDB_total_median"," RefitDCSaDB_total_maximum"
+                ]
+            colsdrop2 = [col for col in zdata_live.columns if col not in colkeep]
+            zdata_live = zdata_live.drop(colsdrop2,axis=1)
             zdata_live = zdata_live.dropna(axis=1, how='all')
+            
             parameters_selected_features.append(zdata_live.columns)
+            
             pca_2_forlive = pca_2_base.fit(zdata_live)
             ## only run if you are using the variables (bNIRS, DCS, system) as will be available in real time, i.e. dont update when checking variable dependencies or tuning
             config_dictionary = {f'item_save_{kindex}': pca_2_forlive}
             with open('config.dictionary', 'wb') as config_dictionary_file:
                 pickle.dump(config_dictionary, config_dictionary_file)
             
-
 
         pca_2_result = pca_2_forward.transform(zdata)
 
@@ -109,26 +116,20 @@ def runcluster(df, outcome_data, tune_state, plotoption, saveoption, *args):
         # classification and threshold identification
         x_db, y_db, xx, yy, Z = derive_decision_boundary(pca_2_result, labels, define_decision=False)
         m, b = np.polyfit(x_db, y_db, 1)
-        parameters_decision_bound.append([m,b])
+        
 
         # distribution fitting
         data0 = np.array(outcome_unpacked[np.argwhere(labels==0)])
         data1 = np.array(outcome_unpacked[np.argwhere(labels==1)])
-        if n_cl == 3:
-            data2 = np.array(outcome_unpacked[np.argwhere(labels==2)])
-            mu0, sigma0, mu1, sigma1 = extract_distributions(data0, data1, data2) 
-        if n_cl == 2:
-            mu0, sigma0, mu1, sigma1 = extract_distributions(data0, data1) 
+        mu0, sigma0, mu1, sigma1 = extract_distributions(data0, data1) 
 
         # result plotting
-        updated_labels = identify_severity_regions(x_db, y_db, pca_2_result, labels, patients, np.unique(df['patient']), mu0, mu1, centers)
+        updated_labels, regions = identify_severity_regions(x_db, y_db, pca_2_result, labels, patients, np.unique(df['patient']), mu0, mu1, centers)
+        parameters_decision_bound.append([m,b, regions])
         plotcluster(pca_2_result, updated_labels, patients, session, keepingnoevents, plotoption, saveoption, xx, yy, Z)
         updated_labels_inuse = updated_labels[~np.isnan(updated_labels)]
         data0 = np.array(outcome_unpacked[np.argwhere(updated_labels_inuse==0)])
         data1 = np.array(outcome_unpacked[np.argwhere(updated_labels_inuse==1)])
-        if n_cl == 3:
-            data2 = np.array(outcome_unpacked[np.argwhere(updated_labels_inuse==2)])
-            mu0, sigma0, mu1, sigma1 = plothisto(data0, data1, session, keepingnoevents, saveoption, plotoption, data2) 
         if n_cl == 2:
             mu0, sigma0, mu1, sigma1 = plothisto(data0, data1, session, keepingnoevents, saveoption, plotoption) 
         plt.close()

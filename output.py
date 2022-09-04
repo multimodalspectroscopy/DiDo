@@ -187,14 +187,11 @@ class clinicwindow:
         #self.bar(0.01)
         self.root.update_idletasks()
 
-    def showres(self):
+    def showres(self, classif, conf):
         #classif, conf = p.broadcastresult()
-        classif = 'draft' ; conf = 'draft'; color='blue'
-        if classif == 'mild':
+        if classif == 'low risk':
             color = 'blue'
-        if classif == 'moderate':
-            color = 'orange'
-        if classif == 'severe':
+        if classif == 'high risk':
             color = 'red'
         self.mycanvas = Canvas( width=300,height=300,bg='white')
         self.mycanvas.place(x=200,y=60)
